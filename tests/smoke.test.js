@@ -68,6 +68,7 @@ function createPage() {
     unobserve() {}
     disconnect() {}
   };
+  window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
   window.fetch = async () => ({
     ok: false,
     status: 401,
@@ -146,6 +147,7 @@ test('smoke：侧边栏缺失时不注入面板，也不抛异常', async () => 
     unobserve() {}
     disconnect() {}
   };
+  window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
   window.fetch = async () => ({ ok: false, status: 401, json: async () => ({}), text: async () => '' });
   try {
     injectScript(window, 'dist/content.js');

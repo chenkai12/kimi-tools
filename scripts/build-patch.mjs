@@ -65,6 +65,7 @@ fs.chmodSync(path.join(STAGE, 'install.sh'), 0o755);
 fs.copyFileSync(path.join(PATCH, 'install.mjs'), path.join(STAGE, 'install.mjs'));
 fs.copyFileSync(path.join(ROOT, 'content.css'), path.join(STAGE, 'kcm/content.css'));
 fs.cpSync(path.join(ROOT, 'rive'), path.join(STAGE, 'kcm/rive'), { recursive: true });
+fs.cpSync(path.join(ROOT, 'assets'), path.join(STAGE, 'kcm/assets'), { recursive: true });
 
 const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8')).version;
 // 补丁版本标记：doctor.mjs 与技能自更新比对用

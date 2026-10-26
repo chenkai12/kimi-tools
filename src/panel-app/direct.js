@@ -89,7 +89,7 @@ export function startDirectMode() {
       const r = await fetch(apiUrl('/api/v1/oauth/usage'));
       const body = await r.json();
       // kap 的 managed quota 形状（app.asar 实测）：{ data: { quota: { usages, extraUsage } } }。
-      // usages = { limit5h: {usedRatio, resetAt}, limit7d: {...} }；
+      // usages = { limit5h: {usedRatio, resetAt}, limit7d: {...}, monthTotal: {...}, monthCode: {...} }；
       // extraUsage = 加油包余额 { balanceCents（分）, totalCents, currency, ... }，
       // 无加油包时是 null——曾经的 bug：这里只取 usages 把 extraUsage 丢掉，
       // 面板余额只能靠安装时的 wallet.js 快照，永远不更新
@@ -153,7 +153,7 @@ export function startDirectMode() {
       for (const item of await fetchClientProviders()) {
         const id = typeof item?.id === 'string' ? item.id : '';
         const info = classifyClientProvider(item);
-        // 托管账号的额度在面板顶部（5h/本周）显示，外部账户里不重复列
+        // 托管账号的额度在面板顶部（5h/本周/本月）显示，外部账户里不重复列
         if (info.kind === 'managed') continue;
         if (info.kind === 'unsupported') {
           unsupported.push({ id, host: info.host, reason: info.reason });

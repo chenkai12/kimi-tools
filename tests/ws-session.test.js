@@ -121,6 +121,7 @@ async function createSessionPage() {
     unobserve() {}
     disconnect() {}
   };
+  window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
   // 快照：input 2000 / output 1000 / last_seq 5
   window.fetch = async (url) => {
     assert.match(String(url), new RegExp(`/api/v1/sessions/${SESSION_ID}`));
@@ -301,7 +302,7 @@ test('重连上限：连续失败达到上限后停止新建连接，转入低�
       }
       const before = FakeWebSocket.instances.length;
       let pumped = 0;
-      while (FakeWebSocket.instances.length === before && pumped < 500 && timers.runNext()) {
+      while (FakeWebSocket.instances.length === before && pumped < 5000 && timers.runNext()) {
         pumped += 1;
       }
       if (FakeWebSocket.instances.length === before) break; // 已达上限，不再重连

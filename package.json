@@ -15,5 +15,8 @@
     "esbuild": "^0.28.2",
     "eslint": "^10.8.1",
     "jsdom": "^30.0.1"
+  },
+  "dependencies": {
+    "lottie-web": "^5.13.0"
   }
 }

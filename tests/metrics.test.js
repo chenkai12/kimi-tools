@@ -216,7 +216,7 @@ test('Widget 配置：空输入与垃圾输入都回落到默认配置', () => {
 test('Widget 配置：默认布局（标题行隐藏作备份、宠物沉底置顶、额度沉底）', () => {
   const config = defaultWidgetConfig();
   assert.deepEqual(config.orderFull, ['input', 'cache', 'output', 'speed', 'usageChart']);
-  assert.deepEqual(config.orderMini, ['pet', 'quota5h', 'quotaWeek']);
+  assert.deepEqual(config.orderMini, ['pet', 'quota5h', 'quotaWeek', 'quotaMonth']);
   assert.deepEqual(config.orderHidden, ['header', 'duration', 'external', 'agents']);
   assert.deepEqual(config.modules.header, {
     show: 'hidden', span: 2, stat: 'balance', dataLink: 'subscription'
@@ -237,7 +237,7 @@ test('Widget 配置：v1 独立 header 配置迁移为模块', () => {
   assert.deepEqual(config.modules.header, {
     show: 'mini', span: 2, stat: 'daily', dataLink: 'console'
   });
-  assert.deepEqual(config.orderMini, ['pet', 'quota5h', 'quotaWeek', 'header']);
+  assert.deepEqual(config.orderMini, ['pet', 'quota5h', 'quotaWeek', 'quotaMonth', 'header']);
   assert.deepEqual(config.orderFull, ['input', 'cache', 'output', 'speed', 'usageChart']);
   // 非法迁移值回落默认
   const broken = normalizeWidgetConfig({ header: { showInMini: 'yes', balanceLink: 'https://evil.example' } });
@@ -317,7 +317,7 @@ test('Widget 配置：order 数组与显隐状态强制一致（含隐藏区）'
     orderMini: ['quota5h', 'quotaWeek']
   });
   assert.deepEqual(config.orderFull, ['cache', 'output', 'speed', 'usageChart']);
-  assert.deepEqual(config.orderMini, ['quotaWeek', 'pet', 'input']);
+  assert.deepEqual(config.orderMini, ['quotaWeek', 'pet', 'quotaMonth', 'input']);
   assert.deepEqual(config.orderHidden, ['header', 'duration', 'external', 'agents', 'quota5h']);
 
   // 存储顺序优先于默认顺序；未知 id 被剔除；缺漏的补在末尾
@@ -326,23 +326,26 @@ test('Widget 配置：order 数组与显隐状态强制一致（含隐藏区）'
     orderMini: ['quotaWeek', 'quota5h']
   });
   assert.deepEqual(reordered.orderFull, ['speed', 'output', 'cache', 'input', 'usageChart']);
-  assert.deepEqual(reordered.orderMini, ['quotaWeek', 'quota5h', 'pet']);
+  assert.deepEqual(reordered.orderMini, ['quotaWeek', 'quota5h', 'pet', 'quotaMonth']);
 });
 
 test('Widget 配置：额度模块 pace 开关与消耗量统计范围', () => {
   const defaults = defaultWidgetConfig();
   assert.equal(defaults.modules.quota5h.pace, true);
   assert.equal(defaults.modules.quotaWeek.pace, true);
+  assert.equal(defaults.modules.quotaMonth.pace, true);
 
   const config = normalizeWidgetConfig({
     modules: {
       quota5h: { pace: false },
       quotaWeek: { pace: 'yes' },
+      quotaMonth: { pace: false },
       usageChart: { chartRange: 'month' }
     }
   });
   assert.equal(config.modules.quota5h.pace, false);
   assert.equal(config.modules.quotaWeek.pace, true); // 非 boolean 回落默认
+  assert.equal(config.modules.quotaMonth.pace, false);
   assert.equal(config.modules.usageChart.chartRange, 'month');
   // 已下线/未知范围回落默认
   assert.equal(
@@ -355,15 +358,18 @@ test('Widget 配置：额度模块重置时间显示格式（倒计时/具体时
   const defaults = defaultWidgetConfig();
   assert.equal(defaults.modules.quota5h.resetFormat, 'countdown');
   assert.equal(defaults.modules.quotaWeek.resetFormat, 'countdown');
+  assert.equal(defaults.modules.quotaMonth.resetFormat, 'countdown');
 
   const config = normalizeWidgetConfig({
     modules: {
       quota5h: { resetFormat: 'absolute' },
-      quotaWeek: { resetFormat: 'timestamp' }
+      quotaWeek: { resetFormat: 'timestamp' },
+      quotaMonth: { resetFormat: 'absolute' }
     }
   });
   assert.equal(config.modules.quota5h.resetFormat, 'absolute');
   assert.equal(config.modules.quotaWeek.resetFormat, 'countdown'); // 非法值回落默认
+  assert.equal(config.modules.quotaMonth.resetFormat, 'absolute');
 });
 
 test('Widget 配置：v2→v3 迁移把宠物改为全宽，且只迁移一次', () => {
@@ -403,7 +409,7 @@ test('Widget 配置：order 数组含重复 id 时去重，缺漏仍补在末尾
     orderMini: ['pet', 'pet', 'quota5h']
   });
   assert.deepEqual(config.orderFull, ['speed', 'output', 'cache', 'input', 'usageChart']);
-  assert.deepEqual(config.orderMini, ['pet', 'quota5h', 'quotaWeek']);
+  assert.deepEqual(config.orderMini, ['pet', 'quota5h', 'quotaWeek', 'quotaMonth']);
 });
 
 

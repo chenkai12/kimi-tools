@@ -157,6 +157,7 @@ test('过期 token 刷新失败时 auth.status 不再误报已授权', async () 
 });
 
 test('额度响应会等待预警状态与每日快照落盘后再结束', async () => {
+  let quotaCalls = 0;
   const app = await loadBackground({
     local: {
       kimiOAuthToken: {
@@ -165,20 +166,34 @@ test('额度响应会等待预警状态与每日快照落盘后再结束', async
         expires_at: Math.floor(Date.now() / 1_000) + 3_600
       }
     },
-    fetchImpl: async () => ({
-      ok: true,
-      status: 200,
-      async json() { return { limits: [], usage: { limit: 100, used: 85 } }; }
-    })
+    fetchImpl: async () => {
+      quotaCalls += 1;
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            limits: [],
+            usage: { limit: 100, used: 85 },
+            limit_month_total: { used_ratio: 0.625, reset_time: '2026-11-01T00:00:00Z' }
+          };
+        }
+      };
+    }
   });
 
   const state = await app.run(`fetchQuotaFresh()`);
   assert.equal(state.ok, true);
+  assert.equal(quotaCalls, 1, '月额度应复用原额度请求');
+  assert.deepEqual(state.data.monthly, {
+    usedRatio: 0.625,
+    resetTime: '2026-11-01T00:00:00Z'
+  });
   // 返回时预警状态与当日快照均已落盘（used 85 越过 80% 档）
   const alertStates = Object.values(app.local.quotaAlertState || {});
   assert.ok(alertStates[0]?.week?.notified80, '预警状态应已写入');
   const todayKey = KimiMetrics.usageDayKey(new Date());
-  assert.ok(app.local.quotaSnapshots?.[todayKey], '当日额度快照应已写入');
+  assert.equal(app.local.quotaSnapshots?.[todayKey]?.month, 62.5, '月度快照应已写入');
 });
 
 test('resetAndStartOAuth 会等待 pending 的旧授权流程结束后再发起新流程', async () => {

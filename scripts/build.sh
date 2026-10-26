@@ -19,6 +19,7 @@ zip -r "$OUT" \
   dist \
   content.css popup.css \
   rive \
+  assets \
   rules \
   popup.html \
   icons \

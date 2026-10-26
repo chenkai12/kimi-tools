@@ -220,7 +220,7 @@ export function noteAgentUsage(agentId, model, usage) {
 // 三个额度模块全部隐藏且余额也隐藏时暂停拉取（额度预警通知也随之停用），恢复显示即恢复
 export function quotaPollingWanted() {
   const modules = panel.widgetConfig.modules;
-  const quotaVisible = ['quota5h', 'quotaWeek'].some(
+  const quotaVisible = ['quota5h', 'quotaWeek', 'quotaMonth'].some(
     (id) => modules[id]?.show !== 'hidden'
   );
   // 余额现在是两个数据位的一种口径（stat === 'balance' 才真的显示余额），

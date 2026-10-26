@@ -26,13 +26,14 @@ const VISIBLE_CONFIG = {
     duration: { show: 'full', span: 1 },
     quota5h: { show: 'mini', span: 1, pace: true, resetFormat: 'countdown' },
     quotaWeek: { show: 'mini', span: 1, pace: true, resetFormat: 'countdown' },
+    quotaMonth: { show: 'mini', span: 1, pace: true, resetFormat: 'countdown' },
     usageChart: { show: 'full', span: 2, chartRange: 'week' },
     pet: { show: 'mini', span: 2, stat: 'daily', sidebarTidy: true, ballLink: 'none' },
     agents: { show: 'full', span: 2, hiddenAgents: [] },
     external: { show: 'full', span: 1, hiddenAccounts: [] }
   },
   orderFull: ['header', 'input', 'cache', 'output', 'speed', 'duration', 'usageChart', 'agents', 'external'],
-  orderMini: ['pet', 'quota5h', 'quotaWeek'],
+  orderMini: ['pet', 'quota5h', 'quotaWeek', 'quotaMonth'],
   orderHidden: []
 };
 
@@ -82,6 +83,7 @@ function createPage() {
     unobserve() {}
     disconnect() {}
   };
+  window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
   return { dom, window };
 }
 
@@ -96,9 +98,9 @@ test('panel-app：挂载出与侧栏一致的 #ksb-widget，默认布局分区�
     const widget = window.document.getElementById('ksb-widget');
     assert.ok(widget, '面板应被挂载');
     assert.ok(widget.closest('#ksb-panel-host'), '面板应挂在宿主容器内');
-    // 默认布局：Mini 区宠物（整行）+两条额度；完整区外部账户（整行）+四个数值模块；
+    // 默认布局：Mini 区宠物（整行）+三条额度；完整区外部账户（整行）+四个数值模块；
     // 标题行/上轮耗时/代理/消耗图表默认收进隐藏区（不渲染）
-    for (const id of ['pet', 'quota5h', 'quotaWeek', 'external', 'output', 'cache', 'input', 'speed']) {
+    for (const id of ['pet', 'quota5h', 'quotaWeek', 'quotaMonth', 'external', 'output', 'cache', 'input', 'speed']) {
       assert.ok(
         widget.querySelector(`.ksb-module[data-module="${id}"]`),
         `模块 ${id} 应渲染`
@@ -110,7 +112,12 @@ test('panel-app：挂载出与侧栏一致的 #ksb-widget，默认布局分区�
         `模块 ${id} 默认应在隐藏区`
       );
     }
-    assert.ok(window.document.getElementById('ksb-pet-canvas'), '宠物 canvas 应存在');
+    const pet = window.document.getElementById('ksb-pet-canvas');
+    assert.ok(pet, 'Lottie 容器应存在');
+    assert.ok(pet.querySelector('.ksb-mayday-sprite svg'), '应创建真实 Lottie SVG');
+    assert.equal(pet.querySelectorAll('.ksb-mayday-ball').length, 5, '五个角色素材应全部渲染');
+    assert.equal(pet.querySelectorAll('.ksb-mayday-aura').length, 5, '五个角色应各有独立光晕');
+    assert.equal(pet.querySelectorAll('.ksb-mayday-ball[data-active="true"]').length, 1, '每次只显示一个球');
   } finally {
     window.close();
   }
@@ -132,7 +139,8 @@ test('panel-app：桥接消息驱动额度 / 统计 / 会话事件渲染', async
 
     push({ v: 1, type: 'quota', quota: {
       limit5h: { usedRatio: 0.073, resetAt: new Date(Date.now() + 2.5 * 3600e3).toISOString() },
-      limit7d: { usedRatio: 0.392, resetAt: new Date(Date.now() + 4 * 86400e3).toISOString() }
+      limit7d: { usedRatio: 0.392, resetAt: new Date(Date.now() + 4 * 86400e3).toISOString() },
+      monthTotal: { usedRatio: 0.567, resetAt: new Date(Date.now() + 12 * 86400e3).toISOString() }
     }});
     assert.equal(
       window.document.getElementById('ksb-5h-pct').textContent,
@@ -144,9 +152,18 @@ test('panel-app：桥接消息驱动额度 / 统计 / 会话事件渲染', async
       '39%',
       '本周额度应渲染'
     );
+    assert.equal(
+      window.document.getElementById('ksb-month-pct').textContent,
+      '56%',
+      '本月额度应按 monthTotal.usedRatio×100 渲染（与其他额度一样向下取整）'
+    );
     assert.ok(
       window.document.querySelector('#ksb-5h-reset .ksb-reset-full').textContent.length > 0,
       '5h 重置倒计时应渲染'
+    );
+    assert.ok(
+      window.document.querySelector('#ksb-month-reset .ksb-reset-full').textContent.length > 0,
+      '本月重置倒计时应渲染'
     );
 
     const todayKey = usageDayKey(new Date());
@@ -171,6 +188,11 @@ test('panel-app：桥接消息驱动额度 / 统计 / 会话事件渲染', async
       window.document.getElementById('ksb-agent-status').textContent,
       '思考中',
       'working 状态应点亮状态灯'
+    );
+    assert.equal(
+      window.document.getElementById('ksb-pet-canvas').dataset.status,
+      'thinking',
+      'working 状态应驱动五色球工作动画'
     );
 
     push({ v: 1, type: 'event', sessionId: 'test-session', event: { type: 'turn.started', payload: {} } });
@@ -365,6 +387,7 @@ test('panel-app：离开会话页清空焦点，回到同一会话重新取快�
   });
   const { window } = dom;
   window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
   try {
     const ready = new Promise((resolve) => window.addEventListener('kcm:panel-ready', resolve));
     injectScript(window, 'dist/panel-app.js');
@@ -395,6 +418,7 @@ test('panel-app：会话路由下直连模式启动不抛错（TDZ 回归）', a
   });
   const { window } = dom;
   window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
   try {
     const ready = new Promise((resolve) => window.addEventListener('kcm:panel-ready', resolve));
     injectScript(window, 'dist/panel-app.js');
@@ -420,6 +444,7 @@ test('panel-app：重启后的历史重放不把空闲会话抬成「思考中�
   });
   const { window } = dom;
   window.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
   // 状态灯在标题行模块里，默认收在隐藏区：预置全可见配置才能断言
   setVisibleConfig(window);
   // kap 源：直连模式 WS 必须等源解析，测试里经 SPA 同款 sessionStorage 提供

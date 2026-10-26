@@ -3,7 +3,7 @@ export default [
   {
     files: ['src/**/*.js', 'tests/**/*.js'],
     languageOptions: {
-      ecmaVersion: 2023,
+      ecmaVersion: 2026,
       sourceType: 'module',
       globals: {
         chrome: 'readonly',

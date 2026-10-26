@@ -107,38 +107,25 @@ test('宠物今日消耗未授权时明确提示（扩展提示连接 CLI，独�
   assert.match(renderSource, /STATUS_SHORT\[panel\.statusLevel\] \|\| STATUS_SHORT\.loading/);
 });
 
-test('宠物恢复 2.0.0 的命名动画架构，不再混用官网状态机', () => {
-  assert.match(petSource, /const PET_IDLE_ANIM = 'paopao';/);
-  assert.match(petSource, /const PET_LOADING_ANIM = 'loading';/);
-  assert.match(petSource, /const PET_CLICK_ANIMS = \[/);
-  assert.match(petSource, /autoplay: false/);
-  assert.match(petSource, /petRive\.stop\(\);[\s\S]*?petRive\.play\(name\);/);
-  assert.doesNotMatch(petSource, /PET_STATE_MACHINE|stateMachines:|stateMachineInputs\(/);
-  assert.doesNotMatch(petSource, /petRive\.pause\(/);
+test('面板宠物使用本地 Lottie 角色与 SVG 光晕，不再依赖 Rive 单球', () => {
+  assert.match(widgetSource, /import \{ maydayPetHTML \} from '\.\/mayday-pet\.js'/);
+  assert.match(widgetSource, /\$\{maydayPetHTML\(\)\}/);
+  assert.match(petSource, /import \{ createMaydayPet \} from '\.\/mayday-pet\.js'/);
+  assert.doesNotMatch(petSource, /petRive|PET_IDLE_ANIM|PET_LOADING_ANIM|PET_DONE_ANIM/);
+  assert.match(cssSource, /\.ksb-mayday-red|@keyframes ksb-mayday-idle-bob/);
 });
 
-test('Mini 缩放排除弹入动画，并扩充安全随机动作', () => {
-  const togglePool = petSource.match(/const PET_TOGGLE_ANIMS = \[([\s\S]*?)\];/)?.[1] || '';
-  const clickPool = petSource.match(/const PET_CLICK_ANIMS = \[([\s\S]*?)\];/)?.[1] || '';
-  assert.doesNotMatch(togglePool, /'in'/);
-  assert.doesNotMatch(clickPool, /'in'/);
+test('Mini 切换与折叠暂停共用五色球控制器', () => {
   assert.match(widgetSource, /toggleMini\(\);[\s\S]{0,180}?petHandleToggle\(\);/);
-  assert.ok((togglePool.match(/'/g) || []).length >= 12);
+  assert.match(petSource, /export function petHandleToggle\(\) \{\s*maydayPet\?\.playClick\(\);/);
+  assert.match(petSource, /maydayPet\.setPaused\(collapsed\)/);
 });
 
-test('空闲时低频播放眨眼或侧看，完成后回到 paopao', () => {
-  assert.match(petSource, /const PET_IDLE_AMBIENT_ANIMS = \['wink', 'look_right_stop'\];/);
-  assert.match(petSource, /PET_IDLE_AMBIENT_MIN_MS = 8_000/);
-  assert.match(petSource, /petMotion !== PET_IDLE_ANIM/);
-  assert.match(petSource, /petPlayMotion\(name, \{ returnToBase: true \}\);/);
-  assert.match(petSource, /if \(name === PET_IDLE_ANIM\) petScheduleIdleAmbient\(\);/);
-});
-
-test('工作状态只播放 loading，并在 one-shot 自然结束后续播', () => {
-  assert.match(petSource, /return PET_ANSWER_STATUSES\.includes\(petStatus\) \? PET_LOADING_ANIM : PET_IDLE_ANIM;/);
-  assert.match(petSource, /onStop: \(event\) => \{[\s\S]*?stopped\.includes\(petMotion\)[\s\S]*?petMotion === PET_LOADING_ANIM[\s\S]*?petPlayMotion\(PET_LOADING_ANIM\);/);
-  assert.doesNotMatch(petSource, /dataset\.motion|ksb-pet-loading/);
-  assert.doesNotMatch(cssSource, /ksb-pet-loading-ring|ksb-pet-loading/);
+test('工作状态、点击与庆祝都有实际 SVG/CSS 动画和独立光晕', () => {
+  assert.match(cssSource, /data-status="thinking"[\s\S]*?ksb-mayday-work-wave/);
+  assert.match(cssSource, /ksb-mayday-clicking[\s\S]*?@keyframes ksb-mayday-click-jump/);
+  assert.match(cssSource, /ksb-mayday-celebrating[\s\S]*?@keyframes ksb-mayday-star-pop/);
+  assert.match(cssSource, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.ksb-mayday-pet \* \{\s*animation: none !important;/);
 });
 
 test('工具调用期间锁住调用中，直到全部 tool result 返回', () => {
@@ -199,10 +186,10 @@ test('volatile WebSocket 帧复用 durable seq 时不会被游标误删', () => 
   assert.doesNotMatch(wsSource, /if \(message\.seq != null\) \{/);
 });
 
-test('宠物灰红外观独立于 Rive 动作，恢复时默认回蓝色', () => {
+test('宠物灰红外观独立于五色动作，恢复时默认回五色', () => {
   // 外观映射唯一：statusAppearance（metrics）是灯点与宠物球共用的那份
   assert.match(metricsSource, /function statusAppearance\(status\)[\s\S]*?'off'[\s\S]*?'warn'[\s\S]*?'sub'[\s\S]*?'idle'[\s\S]*?'work'/);
-  // 宠物球把五档语义折进素材仅有的三套外观（灰/蓝/红）
+  // 离线灰化、限流红光与五色角色动作分离，状态恢复后回到五色外观
   assert.match(petSource, /import \{ statusAppearance \} from '\.\.\/metrics\.js'/);
   assert.match(petSource, /const appearance = statusAppearance\(status\)/);
   assert.match(petSource, /appearance === 'off'\) return 'gray'/);
@@ -290,17 +277,15 @@ test('两个数据位共用一个刷新入口：数据到达时标题行不许�
   assert.doesNotMatch(usageDailySource, /(?<!Stat)renderPetStats\(\)/);
 });
 
-test('Stars 只由同一会话的真实 turn 生命周期触发', () => {
+test('五色球庆祝只由同一会话的真实 turn 生命周期触发', () => {
   assert.match(wsSource, /case 'turn\.started':[\s\S]*?petBeginTurn\(\);/);
   assert.match(petSource, /panel\.petTurnActive &&[\s\S]*?petTurnSessionId === deps\.getSessionId\(\) &&[\s\S]*?Date\.now\(\) - petTurnSince > 1_000/);
   assert.match(wsSource, /if \(!alreadyRecorded\) \{[\s\S]*?petCompleteTurn\(\);[\s\S]*?\}/);
   assert.match(sessionSource, /if \(sessionChanged\) \{[\s\S]*?petCancelTurn\(\);[\s\S]*?conn\.clearToolStatus\(\);[\s\S]*?\}/);
   assert.doesNotMatch(source, /PET_ANSWER_STATUSES\.includes\(previous\) && display === 'idle'/);
-  assert.match(petSource, /petPlayMotion\(PET_DONE_ANIM, \{ returnToBase: true \}\)/);
+  assert.match(petSource, /if \(shouldCelebrate\) petPlayDoneEffect\(\);/);
+  assert.match(petSource, /function petPlayDoneEffect\(\) \{\s*maydayPet\?\.celebrate\(\);/);
   assert.match(petSource, /if \(display === petStatus\) \{[\s\S]*?petApplyAppearance\(\);[\s\S]*?return;/);
-  // 星星粒子由 nostars 退场链负责收回（自然结束与被打断两条路径都覆盖）
-  assert.match(petSource, /PET_DONE_OUTRO_ANIM = 'nostars'/);
-  assert.match(petSource, /petStarsVisible && petMotion !== PET_DONE_OUTRO_ANIM/);
 });
 
 test('销毁内容脚本时通过 walkthrough cleanup 移除引导及监听', () => {

@@ -23,6 +23,7 @@ import {
   sparkResizeObserver
 } from './render.js';
 import { petStart, petHandleToggle, petSyncRendering } from './pet-panel.js';
+import { maydayPetHTML } from './mayday-pet.js';
 import { start as startWalkthrough } from './walkthrough.js';
 import { t } from '../i18n.js';
 
@@ -33,9 +34,8 @@ export const CONFIG_STORAGE_KEY = 'kimi-statusbar.config';
 const MODULE_LABELS = {
   header: '标题行',
   input: '输入', cache: '缓存命中', output: '输出', speed: '速度', duration: '上轮耗时',
-  quota5h: '5h 额度', quotaWeek: '本周额度', usageChart: '消耗量', pet: '宠物', agents: '子代理',
-  external: '外部账户'
-  // quotaMonth: '本月额度' —— 暂时下线，见 metrics.js WIDGET_MODULE_IDS 注释
+  quota5h: '5h 额度', quotaWeek: '本周额度', quotaMonth: '本月额度',
+  usageChart: '消耗量', pet: '宠物', agents: '子代理', external: '外部账户'
 };
 
 // 编辑模式 / 拖拽状态
@@ -110,10 +110,10 @@ const MODULE_HTML = {
     <svg class="ksb-spark ksb-spark-duration" id="ksb-duration-spark" viewBox="0 0 100 28" preserveAspectRatio="none"></svg>`,
   quota5h: () => quotaModuleHTML('5h', '5h'),
   quotaWeek: () => quotaModuleHTML('week', t('本周')),
-  // quotaMonth: quotaModuleHTML('month', '本月'), —— 暂时下线，见 metrics.js 注释
+  quotaMonth: () => quotaModuleHTML('month', t('本月')),
   pet: () => `
     <div class="ksb-pet">
-      <div class="ksb-pet-clip"><canvas class="ksb-pet-canvas" id="ksb-pet-canvas" width="112" height="112"></canvas></div>
+      <div class="ksb-pet-clip">${maydayPetHTML()}</div>
       <div class="ksb-pet-stats">
         <div class="ksb-pet-total-row">
           <span class="ksb-pet-label-row">

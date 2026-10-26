@@ -2,7 +2,7 @@
  * 额度与授权域
  *
  * 职责边界：
- * - 经 background 拉取 5h/本周额度与加油包余额，驱动渲染层更新。
+ * - 经 background 拉取 5h/本周/本月额度与加油包余额，驱动渲染层更新。
  * - 未授权状态的横幅与状态灯联动；设备授权流程的启动。
  * - 状态读 panel-state.js，DOM 写渲染层/结构层，不直接碰 WS 与会话。
  */
@@ -63,7 +63,9 @@ export async function fetchQuota(force = false, { allowStale = false } = {}) {
     if (fiveHourPercentage != null) updateProgress('5h', fiveHourPercentage);
     updateResetText('5h', parseResetTime(fiveHour?.detail?.resetTime));
 
-    // 月额度暂时下线（background 返回 monthly=null）；模块与拉取逻辑保留备用
+    const monthlyRatio = Number(response.data?.monthly?.usedRatio);
+    if (Number.isFinite(monthlyRatio)) updateProgress('month', monthlyRatio * 100);
+    updateResetText('month', parseResetTime(response.data?.monthly?.resetTime));
   } catch (error) {
     if (String(error?.message || error).includes('Extension context invalidated')) {
       // 扩展已重载，这个残留脚本立即停止所有活动，不再刷错误

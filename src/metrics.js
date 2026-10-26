@@ -312,8 +312,8 @@ function boosterBalanceYuan(wallet) {
 
 /** 状态 → 外观语义。**标题行灯点与宠物球共用这一份映射**——它们本来就是同一
  *  个底子的两种呈现（标题行 = 精简版宠物模块），映射唯一，两边永远同色同义。
- *  灯点直接拿 appearance 当类名（.ksb-dot-<appearance>）；宠物球素材只有
- *  灰/蓝/红三套外观，由 pet-panel 把 appearance 折进这三档（见 petApplyAppearance）。 */
+ *  灯点直接拿 appearance 当类名（.ksb-dot-<appearance>）；五色球由 pet-panel
+ *  把离线折成灰色减光、限流折成红色警示光，其余状态保留五色（见 petApplyAppearance）。 */
 function statusAppearance(status) {
   if (status === 'offline' || status === 'unauthorized') return 'off';
   if (status === 'ratelimit') return 'warn';
@@ -323,10 +323,9 @@ function statusAppearance(status) {
 }
 
 // 模块 id 即排序默认值；header 是标题行（固定整宽，高度与其他模块不同）
-// 注：quotaMonth（本月额度）暂时下线——web token 方案不理想，找到更干净的通路前隐藏
 const WIDGET_MODULE_IDS = [
   'header', 'input', 'cache', 'output', 'speed', 'duration',
-  'quota5h', 'quotaWeek', 'usageChart', 'pet', 'agents', 'external'
+  'quota5h', 'quotaWeek', 'quotaMonth', 'usageChart', 'pet', 'agents', 'external'
 ];
 const WIDGET_SHOW_STATES = ['full', 'mini', 'hidden'];
 const CHART_RANGES = ['day', 'week', 'month'];
@@ -350,13 +349,14 @@ function defaultWidgetConfig() {
       duration: { show: 'hidden', span: 1 },
       quota5h: { show: 'mini', span: 1, pace: true, resetFormat: 'countdown' },
       quotaWeek: { show: 'mini', span: 1, pace: true, resetFormat: 'countdown' },
+      quotaMonth: { show: 'mini', span: 1, pace: true, resetFormat: 'countdown' },
       usageChart: { show: 'full', span: 2, chartRange: 'week' },
       pet: { show: 'mini', span: 2, stat: 'daily', sidebarTidy: true, ballLink: 'none' },
       agents: { show: 'hidden', span: 2, hiddenAgents: [] },
       external: { show: 'hidden', span: 1, hiddenAccounts: [] }
     },
     orderFull: ['input', 'cache', 'output', 'speed', 'usageChart'],
-    orderMini: ['pet', 'quota5h', 'quotaWeek'],
+    orderMini: ['pet', 'quota5h', 'quotaWeek', 'quotaMonth'],
     orderHidden: ['header', 'duration', 'external', 'agents']
   };
 }

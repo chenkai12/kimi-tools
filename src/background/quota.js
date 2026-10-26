@@ -174,6 +174,18 @@ export async function fetchQuota(payload) {
   return promise;
 }
 
+function normalizeMonthlyStats(data) {
+  const monthly = data?.limit_month_total ?? data?.monthTotal ?? data?.monthly;
+  if (!monthly || typeof monthly !== 'object') return null;
+  const usedRatio = Number(monthly.usedRatio ?? monthly.used_ratio);
+  if (!Number.isFinite(usedRatio)) return null;
+  const resetTime = monthly.resetAt ?? monthly.resetTime ?? monthly.reset_time;
+  return {
+    usedRatio,
+    ...(typeof resetTime === 'string' && resetTime ? { resetTime } : {})
+  };
+}
+
 export async function fetchQuotaFresh(accountId) {
   const requestRevision = getAuthRevision();
   const store = await readAccountStore();
@@ -202,9 +214,7 @@ export async function fetchQuotaFresh(accountId) {
     throw await httpError('额度 API', response);
   }
   const data = await response.json();
-  // 月额度暂时下线：web token 寿命仅约 18 分钟，中转/轮询方案体验不佳，
-  // 找到更干净的通路前不再拉取（resolveMonthlyStats/requestMonthlyStats 保留备用）
-  data.monthly = null;
+  data.monthly = normalizeMonthlyStats(data);
   if (requestRevision !== getAuthRevision()) {
     return failure(new Error('授权状态已改变'), 'AUTH_REQUIRED');
   }
@@ -219,8 +229,8 @@ export async function fetchQuotaFresh(accountId) {
   return result;
 }
 
-// 月额度：实时成功则落盘最后已知值；失败回退该值（stale 标记），面板不再横杠
-// 备用通路（当前 data.monthly 恒为 null，不调用）：导出为模块 API 备将来启用
+// 旧订阅接口的备用通路：主额度请求未提供月额度时可单独调用，
+// 实时成功则落盘最后已知值，失败回退该值（stale 标记）。
 export async function resolveMonthlyStats(deviceAccessToken) {
   const fresh = await requestMonthlyStats(deviceAccessToken);
   if (fresh) {

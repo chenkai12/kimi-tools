@@ -5,7 +5,7 @@
  * - direct.js：kap-server 的 WS 事件、REST 轮询与外部账户直连抓取（本文件同目录）；
  * - loader.js：usage-daily.js / wallet.js 落盘快照（安装器预填 + 技能刷新）。
  * msg 形如 { v: 1, type, ... }：
- *   - { type: 'quota', quota: { limit5h: { usedRatio, resetAt }, limit7d: { ... } } }
+ *   - { type: 'quota', quota: { limit5h: { usedRatio, resetAt }, limit7d: { ... }, monthTotal: { ... } } }
  *     usedRatio 是 0~1 用量比（×100 后进 updateProgress）；resetAt 为 ISO 时间
  *     （parseResetTime 后进 updateResetText）。可选 wallet 字段透传 updateBalance。
  *   - { type: 'event', event }：kap-server 的 WS 消息（type/payload/agent_id…），
@@ -315,6 +315,7 @@ function handleQuota(msg) {
   const quota = msg.quota || {};
   const fiveHour = quota.limit5h || quota['5h'];
   const week = quota.limit7d || quota.limitWeek || quota.week;
+  const month = quota.monthTotal || quota.limitMonthTotal || quota.month;
   if (fiveHour) {
     const ratio = Number(fiveHour.usedRatio);
     if (Number.isFinite(ratio)) updateProgress('5h', ratio * 100);
@@ -324,6 +325,11 @@ function handleQuota(msg) {
     const ratio = Number(week.usedRatio);
     if (Number.isFinite(ratio)) updateProgress('week', ratio * 100);
     updateResetText('week', parseResetTime(week.resetAt));
+  }
+  if (month) {
+    const ratio = Number(month.usedRatio);
+    if (Number.isFinite(ratio)) updateProgress('month', ratio * 100);
+    updateResetText('month', parseResetTime(month.resetAt));
   }
   /* 余额双源（两边形状不同，boosterBalanceYuan 都认）：
    * - msg.extraUsage **为真值对象** = kap 给了活余额（balanceCents，单位分）；

@@ -2,7 +2,7 @@
  * 宠物域
  *
  * 职责边界：
- * - Rive 吉祥物（面板内）：状态联动、命名动画播放、状态时钟、点击小动作。
+ * - 五月天五色球（面板内）：状态联动、发光与动作、状态时钟、点击互动。
  * - Codex 桌面宠物（页面上漫游）：素材加载、开关、拖拽位置/环视/大小持久化。
  * - 状态来源：渲染层经 initRender 钩子推状态（petUpdateStatus/roamPetSetStatus）；
  *   WS 域直接 import petBeginTurn/petCompleteTurn；面板状态读 panel-state.js。
@@ -14,38 +14,11 @@ import { PET_ANSWER_STATUSES, openDataLink } from './utils.js';
 import { statusText } from '../i18n.js';
 import { getDisplayedAgentStatus } from './render.js';
 import { create as createRoamPet } from '../pet/sprites.js';
+import { createMaydayPet } from './mayday-pet.js';
 
-// 资产取自 kimi.com 前端公开 CDN（对话头像），运行时 @rive-app/canvas-lite 本地打包。
-// 沿用 2.0.0 的命名动画方式：动作直接播放，颜色独立由 CSS 表达。
-const PET_RIV_URL = chrome.runtime.getURL('rive/kimi_avatar_web-PnsTWI-X.riv');
-const PET_WASM_URL = chrome.runtime.getURL('rive/rive.wasm');
-const PET_IDLE_ANIM = 'paopao';
-const PET_LOADING_ANIM = 'loading';
-const PET_DONE_ANIM = 'stars';
-// stars 只负责让星星出现，粒子退场由 nostars 负责（v2.0 的 stars→nostars 链）
-const PET_DONE_OUTRO_ANIM = 'nostars';
-const PET_CLICK_ANIMS = [
-  'yaoyiyao', 'angryface', 'wink', 'angryeye',
-  'hover', 'hover100', 'wink_stop', 'paopao_stop'
-];
-const PET_TOGGLE_ANIMS = [
-  'yaoyiyao', 'angryface', 'wink', 'angryeye', 'hover', 'hover100'
-];
-// 不重新引入颜色/状态混合的官网状态机，只恢复它的低频空闲变化。
-const PET_IDLE_AMBIENT_ANIMS = ['wink', 'look_right_stop'];
-const PET_IDLE_AMBIENT_MIN_MS = 8_000;
-const PET_IDLE_AMBIENT_JITTER_MS = 10_000;
-
-let petRive = null;
+let maydayPet = null;
 let petCanvasEl = null;
-// 记录点球监听器绑在哪个 canvas 上，结构重建时避免重复绑定
-let petClickBoundCanvas = null;
 let petStatus = 'idle';
-let petMotion = '';
-let petStarsVisible = false;
-let petSwitchingMotion = false;
-let petReturnToBase = false;
-let petIdleAmbientTimer = null;
 let petTurnSessionId = '';
 let petTurnSince = 0;
 // 状态时钟：进入当前状态的时间点与 1s 计时器
@@ -122,10 +95,8 @@ export function setPetStatusSince(timestamp) {
   petStatusSince = timestamp;
 }
 
-/* ---------- Rive 吉祥物 ---------- */
+/* ---------- 五月天五色球 ---------- */
 
-// 外观映射的唯一来源是 metrics 的 statusAppearance（标题行灯点共用同一份）：
-// 球素材只有灰/蓝/红三套外观，把五档语义折进这三档——off→灰、warn→红、其余→蓝
 function petAppearanceForStatus(status) {
   const appearance = statusAppearance(status);
   if (appearance === 'off') return 'gray';
@@ -138,65 +109,9 @@ function petApplyAppearance() {
   panel.els.petCanvas.dataset.appearance = petAppearanceForStatus(petStatus);
 }
 
-function petClearIdleAmbient() {
-  if (petIdleAmbientTimer) clearTimeout(petIdleAmbientTimer);
-  petIdleAmbientTimer = null;
-}
-
-function petScheduleIdleAmbient() {
-  petClearIdleAmbient();
-  if (petStatus !== 'idle' || !petRive) return;
-  const delay = PET_IDLE_AMBIENT_MIN_MS + Math.random() * PET_IDLE_AMBIENT_JITTER_MS;
-  petIdleAmbientTimer = setTimeout(() => {
-    petIdleAmbientTimer = null;
-    if (deps.isDisposed()) return;
-    if (petStatus !== 'idle' || petMotion !== PET_IDLE_ANIM || !petRive) {
-      petScheduleIdleAmbient();
-      return;
-    }
-    const name = PET_IDLE_AMBIENT_ANIMS[
-      Math.floor(Math.random() * PET_IDLE_AMBIENT_ANIMS.length)
-    ];
-    petPlayMotion(name, { returnToBase: true });
-  }, delay);
-}
-
-function petPlayMotion(name, { returnToBase = false } = {}) {
-  if (!petRive) return;
-  petClearIdleAmbient();
-  try {
-    petSwitchingMotion = true;
-    petReturnToBase = returnToBase;
-    petRive.stop();
-    petRive.play(name);
-    petMotion = name;
-    if (name === PET_IDLE_ANIM) petScheduleIdleAmbient();
-  } catch (error) {
-    console.warn('[Kimi Status] 吉祥物动画切换失败', error);
-  } finally {
-    petSwitchingMotion = false;
-  }
-}
-
-function petBaseMotion() {
-  return PET_ANSWER_STATUSES.includes(petStatus) ? PET_LOADING_ANIM : PET_IDLE_ANIM;
-}
-
-function petPlayBase() {
-  // 星星粒子还挂着：先播 nostars 让它们退场，再回到基底。
-  // 覆盖 stars 自然结束与 stars 被打断两条路径（被打断时粒子停留中途帧）
-  if (petStarsVisible && petMotion !== PET_DONE_OUTRO_ANIM) {
-    petPlayMotion(PET_DONE_OUTRO_ANIM, { returnToBase: true });
-    return;
-  }
-  const desired = petBaseMotion();
-  if (petMotion === desired && petRive?.playingAnimationNames?.includes(desired)) return;
-  petPlayMotion(desired);
-}
-
 function petSyncState() {
   petApplyAppearance();
-  petPlayBase();
+  maydayPet?.setStatus(petStatus);
 }
 
 export function petBeginTurn() {
@@ -212,8 +127,6 @@ export function petCancelTurn() {
 }
 
 export function petCompleteTurn() {
-  // 重放的历史事件里 turn.started 与 turn.ended 间隔只有几毫秒；
-  // 真实一轮回答至少持续一秒以上，据此抑制重放触发的 Stars
   const shouldCelebrate =
     panel.petTurnActive &&
     petTurnSessionId === deps.getSessionId() &&
@@ -222,119 +135,41 @@ export function petCompleteTurn() {
   if (shouldCelebrate) petPlayDoneEffect();
 }
 
-function petHandleClick() {
-  const name = PET_CLICK_ANIMS[Math.floor(Math.random() * PET_CLICK_ANIMS.length)];
-  petPlayMotion(name, { returnToBase: true });
-}
-
 export function petHandleToggle() {
-  const name = PET_TOGGLE_ANIMS[Math.floor(Math.random() * PET_TOGGLE_ANIMS.length)];
-  petPlayMotion(name, { returnToBase: true });
+  maydayPet?.playClick();
 }
 
-// Stars 只由真实 turn 生命周期触发，播放完回到当前基底动画。
 function petPlayDoneEffect() {
-  if (!petRive || petMotion === PET_DONE_ANIM) return;
-  petStarsVisible = true;
-  petPlayMotion(PET_DONE_ANIM, { returnToBase: true });
+  maydayPet?.celebrate();
 }
 
-// Mini 折叠时宠物画布高度归 0，Rive 对 0 尺寸画布持续渲染可能卡死页面：
-// 宠物不在迷你区且处于 Mini 时暂停渲染，展开恢复
 export function petSyncRendering() {
-  if (!petRive) return;
+  if (!maydayPet) return;
   const petInMini = panel.widgetConfig.orderMini.includes('pet');
   const collapsed = Boolean(panel.els?.widget?.classList.contains('ksb-mini')) && !petInMini;
-  try {
-    if (collapsed) petRive.stopRendering();
-    else petRive.startRendering();
-  } catch (error) {
-    // 忽略
-  }
+  maydayPet.setPaused(collapsed);
 }
 
-// 结构重建后调用：canvas 未变且实例存活时复用（避免配置回声造成 Rive 双重实例化）
 export function petStart() {
-  const api = globalThis.rive;
-  if (!api?.Rive || !api?.RuntimeLoader) return;
-  if (petRive && panel.els?.petCanvas && panel.els.petCanvas === petCanvasEl) return;
-  if (petRive) {
-    try {
-      petRive.cleanup();
-    } catch (error) {
-      // 忽略
-    }
-    petRive = null;
-    petCanvasEl = null;
-    petMotion = '';
-    petStarsVisible = false;
-    petSwitchingMotion = false;
-    petReturnToBase = false;
-    petClearIdleAmbient();
-  }
   if (!panel.els?.petCanvas) return;
-  // wasm 强制走本地，禁用 CDN 回退（扩展不允许远程代码）
-  api.RuntimeLoader.setWasmUrl(PET_WASM_URL);
-  api.RuntimeLoader.setWasmFallbackUrl(null);
-  const instance = new api.Rive({
-    src: PET_RIV_URL,
-    canvas: panel.els.petCanvas,
-    autoplay: false,
-    fit: api.Fit?.Contain,
-    alignment: api.Alignment?.Center,
-    onLoad: () => {
-      if (petRive !== instance) return;
-      petSyncState();
-    },
-    onStop: (event) => {
-      // stop()+play() 的主动切换不处理；只有 one-shot 自然结束才续播。
-      if (petRive !== instance || petSwitchingMotion) return;
-      const stopped = Array.isArray(event?.data) ? event.data : [];
-      if (!stopped.includes(petMotion)) return;
-      queueMicrotask(() => {
-        if (petRive !== instance || petSwitchingMotion) return;
-        if (petMotion === PET_LOADING_ANIM && PET_ANSWER_STATUSES.includes(petStatus)) {
-          petPlayMotion(PET_LOADING_ANIM);
-          return;
-        }
-        // nostars 自然播完才认定粒子已退场（中途被打断则保留标记，下次回基底时补播）
-        if (petMotion === PET_DONE_OUTRO_ANIM) petStarsVisible = false;
-        if (petReturnToBase) {
-          petReturnToBase = false;
-          petPlayBase();
-        }
-      });
-    },
-    onLoadError: (error) => console.warn('[Kimi Status] 吉祥物动画加载失败', error)
-  });
-  petRive = instance;
+  if (maydayPet && panel.els.petCanvas === petCanvasEl) return;
+  maydayPet?.destroy();
   petCanvasEl = panel.els.petCanvas;
-  petApplyAppearance();
+  maydayPet = createMaydayPet(petCanvasEl, {
+    onAction: () => openDataLink(panel.widgetConfig.modules.pet?.ballLink)
+  });
+  petSyncState();
   petSyncRendering();
   petClockStart();
-  // 点球：播放一次命名动作；配置了跳转则同时打开（控制台/充值页，≡ 菜单可选）。
-  // 同一 canvas 只绑一次，避免结构复用时重复触发。
-  if (petClickBoundCanvas !== panel.els.petCanvas) {
-    panel.els.petCanvas.addEventListener('click', (event) => {
-      event.stopPropagation();
-      petHandleClick();
-      // 跳转目标与标题行数据位共用同一份逻辑（utils.openDataLink）
-      openDataLink(panel.widgetConfig.modules.pet?.ballLink);
-    });
-    petClickBoundCanvas = panel.els.petCanvas;
-  }
 }
 
-// 与状态灯同源：命名动画只负责动作，CSS 只负责蓝/灰/红外观。
-// Stars 由同一会话的 turn 生命周期触发，不再从显示状态变化推断。
+// 庆祝只由同一会话的真实 turn 生命周期触发，重复状态不打断一次性动作。
 export function petUpdateStatus(display) {
   if (panel.els?.petStatusText) {
     panel.els.petStatusText.textContent = statusText(display);
     panel.els.petStatus.dataset.status = display;
   }
   if (display === petStatus) {
-    // 重复状态只刷新颜色，不能打断正在播放的 Stars / 点击动作；
-    // loading 自然结束后的续播由唯一的 onStop 分支负责。
     petApplyAppearance();
     return;
   }
@@ -351,24 +186,12 @@ export function petUpdateStatus(display) {
   petSyncState();
 }
 
-// 页面销毁时清理宠物域持有的定时器与实例（content.js dispose 调用）
 export function disposePet() {
   if (petClockTimer) clearInterval(petClockTimer);
   petClockTimer = null;
-  petClearIdleAmbient();
-  if (petRive) {
-    try {
-      petRive.cleanup();
-    } catch (error) {
-      // 忽略
-    }
-    petRive = null;
-    petCanvasEl = null;
-    petMotion = '';
-    petStarsVisible = false;
-    petSwitchingMotion = false;
-    petReturnToBase = false;
-  }
+  maydayPet?.destroy();
+  maydayPet = null;
+  petCanvasEl = null;
   petCancelTurn();
   roamPetStop();
 }
