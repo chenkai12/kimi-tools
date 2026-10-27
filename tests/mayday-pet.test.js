@@ -153,3 +153,38 @@ test('五色球：减少动态效果时只显示第一帧且不自动轮换', as
     else globalThis.matchMedia = previous;
   }
 });
+
+test('五色球：视频模式播完再切换，速度放慢且暂停时不切换', async () => {
+  const dom = new JSDOM('<!DOCTYPE html><body></body>', { url: 'http://localhost/' });
+  const { window } = dom;
+  window.HTMLMediaElement.prototype.play = function play() {
+    this.playCount = (this.playCount || 0) + 1;
+    return Promise.resolve();
+  };
+  window.HTMLMediaElement.prototype.pause = function pause() {
+    this.pauseCount = (this.pauseCount || 0) + 1;
+  };
+  window.HTMLMediaElement.prototype.load = function load() {};
+  window.document.body.innerHTML = maydayPetHTML();
+  const element = window.document.getElementById('ksb-pet-canvas');
+  const controller = createMaydayPet(element, { rotationInterval: 10 });
+  try {
+    const active = () => element.querySelector('.ksb-mayday-ball[data-active="true"]');
+    assert.equal(active().dataset.member, 'red');
+    const redVideo = active().querySelector('video');
+    assert.equal(redVideo.playbackRate, 0.7, '视频应放慢播放');
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(active().dataset.member, 'red', '视频未播完时不应按固定时间切换');
+
+    redVideo.dispatchEvent(new window.Event('ended'));
+    assert.equal(active().dataset.member, 'blue', '播完应切到下一个');
+
+    controller.setPaused(true);
+    active().querySelector('video').dispatchEvent(new window.Event('ended'));
+    assert.equal(active().dataset.member, 'blue', '暂停时播完事件不应切换');
+  } finally {
+    controller.destroy();
+    dom.window.close();
+  }
+});

@@ -84,6 +84,9 @@ function createPage() {
     disconnect() {}
   };
   window.HTMLCanvasElement.prototype.getContext = () => ({ fillRect() {} });
+  window.HTMLMediaElement.prototype.play = () => Promise.resolve();
+  window.HTMLMediaElement.prototype.pause = () => {};
+  window.HTMLMediaElement.prototype.load = () => {};
   return { dom, window };
 }
 
@@ -113,8 +116,9 @@ test('panel-app：挂载出与侧栏一致的 #ksb-widget，默认布局分区�
       );
     }
     const pet = window.document.getElementById('ksb-pet-canvas');
-    assert.ok(pet, 'Lottie 容器应存在');
-    assert.ok(pet.querySelector('.ksb-mayday-sprite svg'), '应创建真实 Lottie SVG');
+    assert.ok(pet, '宠物容器应存在');
+    assert.ok(pet.querySelector('.ksb-mayday-sprite video'), '应创建宠物视频元素');
+    assert.equal(pet.querySelectorAll('.ksb-mayday-sprite video').length, 5, '五段宠物视频应全部渲染');
     assert.equal(pet.querySelectorAll('.ksb-mayday-ball').length, 5, '五个角色素材应全部渲染');
     assert.equal(pet.querySelectorAll('.ksb-mayday-aura').length, 5, '五个角色应各有独立光晕');
     assert.equal(pet.querySelectorAll('.ksb-mayday-ball[data-active="true"]').length, 1, '每次只显示一个球');

@@ -155,7 +155,12 @@
   window.__kcmAssets = {
     'rive/rive.wasm': '/kcm/rive/rive.wasm?v=' + V,
     'rive/kimi_avatar_web-PnsTWI-X.riv': '/kcm/rive/kimi_avatar_web-PnsTWI-X.riv?v=' + V,
-    'rive/kimi_avatar_default-srYjF2HV.riv': '/kcm/rive/kimi_avatar_default-srYjF2HV.riv?v=' + V
+    'rive/kimi_avatar_default-srYjF2HV.riv': '/kcm/rive/kimi_avatar_default-srYjF2HV.riv?v=' + V,
+    'assets/mayday/video/blue.mp4': '/kcm/assets/mayday/video/blue.mp4?v=' + V,
+    'assets/mayday/video/pink.mp4': '/kcm/assets/mayday/video/pink.mp4?v=' + V,
+    'assets/mayday/video/green.mp4': '/kcm/assets/mayday/video/green.mp4?v=' + V,
+    'assets/mayday/video/yellow.mp4': '/kcm/assets/mayday/video/yellow.mp4?v=' + V,
+    'assets/mayday/video/red.mp4': '/kcm/assets/mayday/video/red.mp4?v=' + V
   };
 
   // 挂载点与 kimi-code-monitor 扩展一致：aside.side > .col 里 side-footer 之前

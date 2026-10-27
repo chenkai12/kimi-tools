@@ -44,7 +44,8 @@
         "rive/rive.wasm",
         "rive/kimi_avatar_default-srYjF2HV.riv",
         "rive/kimi_avatar_web-PnsTWI-X.riv",
-        "assets/mayday/*"
+        "assets/mayday/*",
+        "assets/mayday/video/*"
       ],
       "matches": [
         "http://*/*",

@@ -1562,15 +1562,28 @@ html[data-color-scheme="dark"] #ksb-walk {
   left: 50%;
   top: 50%;
   display: block;
-  width: 75px;
-  height: 75px;
-  margin: -37.5px 0 0 -37.5px;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
 }
 
 .ksb-mayday-sprite > svg {
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+.ksb-mayday-sprite > video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--glow);
+  pointer-events: none;
+  box-shadow:
+    0 0 7px 1px color-mix(in srgb, var(--glow) 65%, transparent),
+    0 0 18px 3px color-mix(in srgb, var(--glow) 32%, transparent);
 }
 
 .ksb-mayday-stars {

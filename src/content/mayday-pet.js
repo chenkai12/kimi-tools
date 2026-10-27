@@ -15,11 +15,71 @@ const MAYDAY_MEMBERS = [
   { id: 'green', color: '#69ce83', animationData: greenAnimation }
 ];
 
+const VIDEO_DIR = 'assets/mayday/video';
+const VIDEO_RATE = 0.7;
+const VIDEO_FILES = {
+  red: 'red.mp4',
+  blue: 'blue.mp4',
+  pink: 'pink.mp4',
+  orange: 'yellow.mp4',
+  green: 'green.mp4'
+};
+
+function videoSrc(member) {
+  const rel = `${VIDEO_DIR}/${VIDEO_FILES[member.id]}`;
+  try {
+    return globalThis.chrome?.runtime?.getURL?.(rel) || rel;
+  } catch (error) {
+    return rel;
+  }
+}
+
+function createVideoPlayer(video) {
+  video.loop = false;
+  video.defaultPlaybackRate = VIDEO_RATE;
+  video.playbackRate = VIDEO_RATE;
+  return {
+    play() {
+      if (video.ended) {
+        try {
+          video.currentTime = 0;
+        } catch (error) {
+          // 元数据未就绪时忽略
+        }
+      }
+      const promise = video.play();
+      if (promise?.catch) promise.catch(() => {});
+    },
+    pause() {
+      video.pause();
+    },
+    goToAndStop() {
+      video.pause();
+      try {
+        video.currentTime = 0;
+      } catch (error) {
+        // 元数据未就绪时忽略
+      }
+    },
+    destroy() {
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch (error) {
+        // 已销毁
+      }
+    }
+  };
+}
+
 function ballShell(member, index) {
   return `
     <div class="ksb-mayday-ball ksb-mayday-${member.id}" data-member="${member.id}" data-active="${index === 0}" style="--i:${index};--glow:${member.color}">
       <span class="ksb-mayday-aura"></span>
-      <div class="ksb-mayday-sprite" data-sprite="${member.id}"></div>
+      <div class="ksb-mayday-sprite" data-sprite="${member.id}">
+        <video class="ksb-mayday-video" src="${videoSrc(member)}" muted playsinline preload="auto" aria-hidden="true"></video>
+      </div>
     </div>`;
 }
 
@@ -55,6 +115,13 @@ export function createMaydayPet(element, { onAction, rotationInterval = 5000, cr
   }));
   const balls = [...element.querySelectorAll('.ksb-mayday-ball')];
   const players = new Map();
+  const videoElements = new Map();
+  const videoEndedHandlers = [];
+  for (const ball of balls) {
+    const video = ball.querySelector('.ksb-mayday-video');
+    if (video) videoElements.set(ball.dataset.member, video);
+  }
+  const useVideo = !createAnimation && videoElements.size === balls.length;
   let memberIndex = 0;
   let effectTimer = null;
   let rotationTimer = null;
@@ -64,6 +131,18 @@ export function createMaydayPet(element, { onAction, rotationInterval = 5000, cr
   for (const ball of balls) {
     const member = MAYDAY_MEMBERS.find((item) => item.id === ball.dataset.member);
     if (!member) continue;
+    if (useVideo) {
+      const video = videoElements.get(member.id);
+      players.set(member.id, createVideoPlayer(video));
+      const onEnded = () => {
+        if (destroyed || paused || reducedMotion) return;
+        if (ball.dataset.active !== 'true') return;
+        showMember((memberIndex + 1) % MAYDAY_MEMBERS.length);
+      };
+      video.addEventListener('ended', onEnded);
+      videoEndedHandlers.push([video, onEnded]);
+      continue;
+    }
     const player = animationFactory({
       container: ball.querySelector('.ksb-mayday-sprite'),
       animationData: member.animationData
@@ -95,6 +174,7 @@ export function createMaydayPet(element, { onAction, rotationInterval = 5000, cr
   }
 
   function startRotation() {
+    if (useVideo) return;
     if (destroyed || paused || reducedMotion || effectTimer || rotationTimer) return;
     rotationTimer = setInterval(() => {
       showMember((memberIndex + 1) % MAYDAY_MEMBERS.length);
@@ -115,11 +195,27 @@ export function createMaydayPet(element, { onAction, rotationInterval = 5000, cr
     }, duration);
   }
 
+  function restartActiveVideo() {
+    if (!useVideo) return;
+    const active = balls.find((ball) => ball.dataset.active === 'true');
+    const video = active ? videoElements.get(active.dataset.member) : null;
+    if (!video) return;
+    try {
+      video.currentTime = 0;
+    } catch (error) {
+      // 元数据未就绪时忽略
+    }
+    const promise = video.play();
+    if (promise?.catch) promise.catch(() => {});
+  }
+
   function playClick() {
+    restartActiveVideo();
     runEffect('ksb-mayday-clicking', 1100);
   }
 
   function celebrate() {
+    restartActiveVideo();
     runEffect('ksb-mayday-celebrating', 1900);
   }
 
@@ -165,6 +261,8 @@ export function createMaydayPet(element, { onAction, rotationInterval = 5000, cr
       element.removeEventListener('click', handleAction);
       element.removeEventListener('keydown', handleKeydown);
       element.classList.remove(...EFFECT_CLASSES);
+      for (const [video, handler] of videoEndedHandlers) video.removeEventListener('ended', handler);
+      videoEndedHandlers.length = 0;
       for (const player of players.values()) player.destroy?.();
       players.clear();
     }
