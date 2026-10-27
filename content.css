@@ -1491,6 +1491,7 @@ html[data-color-scheme="dark"] #ksb-walk {
   gap: 6px;
   min-width: 0;
   max-width: 100%;
+  padding: 4px 0;
 }
 
 .ksb-pet-clip {
@@ -1507,7 +1508,7 @@ html[data-color-scheme="dark"] #ksb-walk {
   display: block;
   width: 79px;
   height: 79px;
-  margin: -14px 0 0 -6px;
+  margin: -1px 0 0 -6px;
   overflow: visible;
   cursor: pointer;
   opacity: 1;
