@@ -1546,9 +1546,9 @@ html[data-color-scheme="dark"] #ksb-walk {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 60px;
-  height: 60px;
-  margin: -30px 0 0 -30px;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
   border-radius: 50%;
   background: var(--glow);
   filter: blur(4px);
@@ -1562,9 +1562,9 @@ html[data-color-scheme="dark"] #ksb-walk {
   left: 50%;
   top: 50%;
   display: block;
-  width: 64px;
-  height: 64px;
-  margin: -32px 0 0 -32px;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
 }
 
 .ksb-mayday-sprite > svg {
